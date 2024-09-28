@@ -1,26 +1,22 @@
 package main
 
 import (
-	"api_example/app/types"
+	"api_example/app/routes"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/logger"
 	"log"
-	"time"
 )
 
 func main() {
 	app := fiber.New()
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.SendString("Hello, World!")
-	})
-	app.Post("/user/save", func(c *fiber.Ctx) error {
-		var body types.User
-		if err := c.BodyParser(&body); err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": err.Error(),
-			})
-		}
-		body.Todos[0].Date = time.Now()
-		return c.Status(fiber.StatusOK).JSON(body)
+
+	app.Static("/static", "./static")
+	app.Use(logger.New())
+
+	routes.TodoRoutes(app)
+
+	app.Get("/stack", func(c *fiber.Ctx) error {
+		return c.JSON(c.App().Stack())
 	})
 	log.Fatal(app.Listen(":3000"))
 }

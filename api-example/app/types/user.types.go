@@ -1,8 +1,12 @@
 package types
 
+import (
+	"github.com/google/uuid"
+)
+
 type User struct {
-	Username string `json:"username"`
-	Email    string `json:"email"`
-	Pin      int    `json:"pin"`
-	Todos    []Todo `json:"todos"`
+	Id       uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primary_key;"`
+	Username string    `json:"username"`
+	Password string    `json:"password"`
+	Todos    []Todo    `json:"todos"`
 }

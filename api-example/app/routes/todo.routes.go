@@ -6,7 +6,7 @@ import (
 )
 
 func TodoRoutes(app fiber.Router) {
-	r := app.Group('/todo')
+	r := app.Group("/todo")
 	r.Get("/list", services.ListTodos)
 	r.Get("/:id", services.GetTodo)
 	r.Post("/add", services.AddTodo)
