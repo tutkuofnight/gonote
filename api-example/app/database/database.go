@@ -19,7 +19,6 @@ func init() {
 	if err := db.AutoMigrate(Todo{}); err != nil {
 		fmt.Println(err)
 	}
-
 }
 
 func GetConnection() *gorm.DB {

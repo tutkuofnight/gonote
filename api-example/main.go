@@ -13,8 +13,8 @@ func main() {
 	app.Static("/static", "./static")
 	app.Use(logger.New())
 
-	routes.TodoRoutes(app)
-
+	//routes.TodoRoutes(app)
+	routes.UserRoutes(app)
 	app.Get("/stack", func(c *fiber.Ctx) error {
 		return c.JSON(c.App().Stack())
 	})

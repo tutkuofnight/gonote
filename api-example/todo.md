@@ -3,5 +3,5 @@
 - [ ] Add logger
 - [ ] Add validator
 - [ ] Add profile image to user
-- [ ] Add postgresql
-- [ ] Add gorm
+- [x] Add postgresql
+- [x] Add gorm
