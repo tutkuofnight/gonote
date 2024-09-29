@@ -5,8 +5,10 @@ import (
 	"api_example/app/helper"
 	. "api_example/app/repository"
 	"api_example/app/types"
+	"fmt"
 	"github.com/gofiber/fiber/v2"
 	jtoken "github.com/golang-jwt/jwt/v4"
+	"path/filepath"
 	"time"
 )
 
@@ -62,7 +64,17 @@ func Login(c *fiber.Ctx) error {
 		"token": t,
 	})
 }
-
+func ChangeProfileImage(c *fiber.Ctx) error {
+	file, err := c.FormFile("profileImage")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString("Cannot find file..")
+	}
+	dst := filepath.Join("static/profile", file.Filename)
+	if err := c.SaveFile(file, dst); err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString("File is not saved :/")
+	}
+	return c.SendString(fmt.Sprintf("Profile Image Succesfully Saved!: %s", file.Filename))
+}
 func Logout(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "Succesfully Logout",

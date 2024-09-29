@@ -13,4 +13,5 @@ func UserRoutes(app fiber.Router) {
 	r.Post("/register", services.Register)
 	r.Post("/login", services.Login)
 	r.Get("/get-session", middlewares.AuthMiddleware(config.Secretkey), services.GetSession)
+	r.Post("/profile/image", middlewares.AuthMiddleware(config.Secretkey), services.ChangeProfileImage)
 }
