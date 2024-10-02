@@ -3,7 +3,7 @@ package services
 import (
 	"api_example/app/config"
 	"api_example/app/helper"
-	. "api_example/app/repository"
+	"api_example/app/repository"
 	"api_example/app/types"
 	"fmt"
 	"github.com/gofiber/fiber/v2"
@@ -12,8 +12,6 @@ import (
 	"time"
 )
 
-var users []types.User
-
 func Register(c *fiber.Ctx) error {
 	var user types.User
 	if err := c.BodyParser(&user); err != nil {
@@ -21,10 +19,17 @@ func Register(c *fiber.Ctx) error {
 			"error": err.Error(),
 		})
 	}
+	var findedUser types.User
+	db.Model(&findedUser).Where("username = ?", user.Username).First(&findedUser)
+	fmt.Println(findedUser)
+	if findedUser.Username == user.Username {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "This user already exists",
+		})
+	}
 	pass, _ := helper.HashPassword(user.Password)
 	user.Password = pass
-	users = append(users, user)
-	// Save db here
+	db.Create(&user)
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"user": user,
 	})
@@ -39,19 +44,23 @@ func Login(c *fiber.Ctx) error {
 	}
 	var credentialsError error
 	var findedUser *types.User
-	findedUser, credentialsError = FindByCredentials(users, user.Username, user.Password)
+	var users []types.User
+	db.Find(&users)
+	findedUser, credentialsError = repository.FindByCredentials(users, user.Username, user.Password)
 	if credentialsError != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Login failed",
 		})
 	}
-	day := time.Hour * 24
+	exp := time.Now().Add(24 * time.Hour)
 	claims := jtoken.MapClaims{
-		"Id":       findedUser.Id,
-		"Username": findedUser.Username,
-		"todos":    findedUser.Todos,
-		"exp":      time.Now().Add(day * 1).Unix(),
+		"data": map[string]interface{}{
+			"Id":       findedUser.Id,
+			"Username": findedUser.Username,
+		},
+		"exp": exp.Unix(),
 	}
+
 	token := jtoken.NewWithClaims(jtoken.SigningMethodHS256, claims)
 	t, err := token.SignedString([]byte(config.Secretkey))
 	if err != nil {
@@ -59,11 +68,19 @@ func Login(c *fiber.Ctx) error {
 			"error": err.Error(),
 		})
 	}
+
+	cookie := new(fiber.Cookie)
+	cookie.Name = "token"
+	cookie.Value = t
+	cookie.Expires = exp
+	c.Cookie(cookie)
+
 	// Return the token
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"token": t,
 	})
 }
+
 func ChangeProfileImage(c *fiber.Ctx) error {
 	file, err := c.FormFile("profileImage")
 	if err != nil {
@@ -73,7 +90,14 @@ func ChangeProfileImage(c *fiber.Ctx) error {
 	if err := c.SaveFile(file, dst); err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString("File is not saved :/")
 	}
-	return c.SendString(fmt.Sprintf("Profile Image Succesfully Saved!: %s", file.Filename))
+	user := c.Locals("session").(map[string]interface{})
+	var findedUser types.User
+	db.First(&findedUser, user["Id"].(string))
+	db.Model(&findedUser).Update("ProfileImage", file.Filename)
+	//db.Save(&findedUser)
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": findedUser,
+	})
 }
 func Logout(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
@@ -82,9 +106,7 @@ func Logout(c *fiber.Ctx) error {
 }
 
 func GetSession(c *fiber.Ctx) error {
-	user := c.Locals("user").(*jtoken.Token)
-	claims := user.Claims.(jtoken.Claims)
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"session": claims,
+		"session": c.Locals("session"),
 	})
 }

@@ -11,12 +11,28 @@ func main() {
 	app := fiber.New()
 
 	app.Static("/static", "./static")
+
 	app.Use(logger.New())
 
-	//routes.TodoRoutes(app)
 	routes.UserRoutes(app)
+	routes.TodoRoutes(app)
+
 	app.Get("/stack", func(c *fiber.Ctx) error {
 		return c.JSON(c.App().Stack())
 	})
+
+	app.Get("/test", func(c *fiber.Ctx) error {
+		//db := database.GetConnection()
+		//var users []types.User
+		//db.Find(&users)
+		//return c.JSON(fiber.Map{
+		//	"users": users,
+		//})
+		res := c.GetReqHeaders()
+		return c.JSON(fiber.Map{
+			"res": res,
+		})
+	})
+
 	log.Fatal(app.Listen(":3000"))
 }
