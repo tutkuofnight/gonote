@@ -16,17 +16,20 @@ func main() {
 	}
 	var clients = make(map[*websocket.Conn]bool)
 	var broadcast = make(chan types.Message)
+
 	handleMessages := func() {
-		msg := <-broadcast
-		for client := range clients {
-			err := client.WriteJSON(msg)
-			if err != nil {
-				log.Fatal(err)
-				err := client.Close()
+		for {
+			msg := <-broadcast
+			for client := range clients {
+				err := client.WriteJSON(msg)
 				if err != nil {
-					return
+					log.Fatal(err)
+					err := client.Close()
+					if err != nil {
+						return
+					}
+					delete(clients, client)
 				}
-				delete(clients, client)
 			}
 		}
 	}
@@ -49,6 +52,8 @@ func main() {
 			err := conn.ReadJSON(&msg)
 			if err != nil {
 				log.Printf("error: %v", err)
+				delete(clients, conn)
+				break
 			}
 			broadcast <- msg
 		}

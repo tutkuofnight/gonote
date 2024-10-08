@@ -11,5 +11,4 @@ type Todo struct {
 	IsChecked bool   `json:"is_checked"`
 	Date      time.Time
 	UserId    uuid.UUID
-	//UserId    uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primary_key;"`
 }
