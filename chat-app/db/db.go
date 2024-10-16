@@ -3,8 +3,7 @@ package db
 import (
 	. "chat-app/types"
 	"fmt"
-	"gorm.io/driver/sqlite"
-	//"gorm.io/driver/postgres"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -12,8 +11,8 @@ var db *gorm.DB
 
 func init() {
 	var err error
-	//dsn := "postgres://postgres:postgres@localhost:5432/chatapp"
-	db, err = gorm.Open(sqlite.Open("db/data.db"), &gorm.Config{})
+	dsn := "postgres://postgres:postgres@localhost:5432/chatapp"
+	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		fmt.Println(err)
 	}
