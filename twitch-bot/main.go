@@ -20,18 +20,18 @@ func main() {
 	var commands map[string]string
 	json.Unmarshal(cmdFile, &commands)
 
-	client := twitch.NewClient("tutkuofnight", os.Getenv("PASS"))
+	client := twitch.NewClient("batsignalbot", os.Getenv("PASS"))
 	client.OnPrivateMessage(func(message twitch.PrivateMessage) {
 		if message.Message[:2] == alias {
 			for key, val := range commands {
 				if message.Message[2:] == key {
-					client.Reply(message.Channel, message.User.ID, val)
+					client.Say(message.Channel, val)
 				}
 			}
 		}
 	})
 
-	client.Join("tutkuofnight")
+	client.Join("asyncsquirrel")
 	err := client.Connect()
 	if err != nil {
 		panic(err)

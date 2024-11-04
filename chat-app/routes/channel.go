@@ -45,15 +45,25 @@ func ChannelRoutes(app fiber.Router) {
 			"message": "Channel created for" + user["username"].(string),
 		})
 	})
+	r.Get("/all", func (ctx *fiber.Ctx) error  {
+		var channels []types.Channel
+		db.Model(&types.Channel{}).Preload("Users").Find(&channels)
+		return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+			"status":  fiber.StatusOK,
+			"channels": channels,
+		})
+	})
 	r.Get("/:id", func(ctx *fiber.Ctx) error {
 		var channel types.Channel
 		result := db.Model(&types.Channel{}).Where("id = ?", ctx.Params("id")).Preload("Messages").Preload("Users").First(&channel)
 		if result.Error != nil {
 			ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": result.Error,
+				"status":  fiber.StatusBadRequest,
+				"message": result.Error,
 			})
 		}
 		return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+			"status":  fiber.StatusOK,
 			"channel": channel,
 		})
 	})

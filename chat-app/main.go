@@ -1,22 +1,32 @@
 package main
 
 import (
-	database "chat-app/db"
 	"chat-app/middleware"
 	"chat-app/routes"
 	"chat-app/types"
 	"encoding/json"
 	"fmt"
+
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/log"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	_ "github.com/joho/godotenv/autoload"
+	"chat-app/db"
+	"chat-app/repository"
 )
 
 func main() {
 	app := fiber.New()
-	db := database.GetDB()
+	db := db.GetDB()
 	app.Static("/", "./static")
+
+	app.Use(cors.New(cors.Config{
+		AllowOrigins:     "http://localhost:3000/",
+		AllowHeaders:     "Origin, Content-Type, Accept",
+		AllowCredentials: true,
+	}))
+
 	var clients = make(map[*websocket.Conn]bool)
 	channelUsers := make(map[string]int32)
 
@@ -30,55 +40,65 @@ func main() {
 		return fiber.ErrUpgradeRequired
 	})
 
-	app.Get("/ws/:name", middleware.RestrictUser, websocket.New(func(conn *websocket.Conn) {
+	app.Get("/ws/:id", middleware.RestrictUser, websocket.New(func(conn *websocket.Conn) {
 		var (
 			mt  int
 			msg []byte
 			err error
 		)
-
 		user := conn.Locals("user").(map[string]interface{})
 		userId := int(user["id"].(float64))
-
 		var channel types.Channel
-		channelName := conn.Params("name")
-		channelErr := db.Model(&types.Channel{}).Where("name = ?", channelName).Preload("Messages").First(&channel).Error
+		channelId := conn.Params("id")
+		channelErr := db.Model(&types.Channel{}).Where("id = ?", channelId).Preload("Messages").First(&channel).Error
+		
 		if channelErr != nil {
 			conn.WriteMessage(websocket.TextMessage, []byte("Channel is not found"))
 			conn.Close()
 			return
 		}
-		currentCount, has := channelUsers[channelName]
+
+		currentCount, has := channelUsers[channelId]
 		if has {
-			channelUsers[channelName] = currentCount + 1
+			channelUsers[channelId] = currentCount + 1
 		} else {
-			channelUsers[channelName] = 1
+			channelUsers[channelId] = 1
 		}
 		defer func() {
-			channelUsers[channelName] -= 1
-			fmt.Printf("%s kanalina bagli kullanici sayisi: %d\n", channelName, channelUsers[channelName])
+			channelUsers[channelId] -= 1
+			fmt.Printf("%s kanalina bagli kullanici sayisi: %d\n", channelId, channelUsers[channelId])
 		}()
-		fmt.Printf("%s kanalina bagli kullanici sayisi: %d\n", channelName, channelUsers[channelName])
+		fmt.Printf("%s kanalina bagli kullanici sayisi: %d\n", channelId, channelUsers[channelId])
+
 		clients[conn] = true
 
 		for {
-			var message types.Message
+			userMessage := types.MessageDto{}
+			var rawMessage types.Message
 			if mt, msg, err = conn.ReadMessage(); err != nil {
 				log.Info("read:", err)
 				break
 			}
-			json.Unmarshal(msg, &message)
-			message.ChannelId = channel.Id
-			message.UserId = int(userId)
-			err := db.Create(&message).Error
+			jserr := json.Unmarshal(msg, &userMessage)
+			if jserr != nil {
+				fmt.Println(jserr)
+			}
+			fmt.Println(userMessage)
+			rawMessage.ChannelId = channel.Id
+			rawMessage.UserId = int(userId)
+			rawMessage.Text = userMessage.Text
+			
+			err := db.Create(&rawMessage).Error
 			if err != nil {
 				log.Info("create error:", err)
 			}
 
-			var user types.User
-			if err := db.Find(&user, message.UserId).Association("Channels").Append(&channel); err != nil {
-				log.Error("update error:", err)
+			dberr := repository.AddUserChannels(userId, channel.Id)
+
+			if dberr != nil {
+				log.Fatal(dberr)
 			}
+
 			for client := range clients {
 				if err = client.WriteMessage(mt, msg); err != nil {
 					log.Info("write:", err)
@@ -91,6 +111,6 @@ func main() {
 	routes.ChannelRoutes(app)
 	routes.UserRotues(app)
 
-	log.Fatal(app.Listen(":3000"))
+	log.Fatal(app.Listen(":3001"))
 
 }

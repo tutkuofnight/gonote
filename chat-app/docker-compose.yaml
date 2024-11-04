@@ -1,12 +1,16 @@
+name: chat
 services:
-  postgres:
+  db:
     image: postgres:latest
-    restart: always
     environment:
+      POSTGRES_DB: chatapp
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: chatapp
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
-    volumes:
-      - ./data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
