@@ -7,13 +7,14 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"chat-app/db"
+	"chat-app/repository"
+
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/log"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	_ "github.com/joho/godotenv/autoload"
-	"chat-app/db"
-	"chat-app/repository"
 )
 
 func main() {
@@ -51,13 +52,12 @@ func main() {
 		var channel types.Channel
 		channelId := conn.Params("id")
 		channelErr := db.Model(&types.Channel{}).Where("id = ?", channelId).Preload("Messages").First(&channel).Error
-		
+
 		if channelErr != nil {
 			conn.WriteMessage(websocket.TextMessage, []byte("Channel is not found"))
 			conn.Close()
 			return
 		}
-
 		currentCount, has := channelUsers[channelId]
 		if has {
 			channelUsers[channelId] = currentCount + 1
@@ -68,15 +68,18 @@ func main() {
 			channelUsers[channelId] -= 1
 			fmt.Printf("%s kanalina bagli kullanici sayisi: %d\n", channelId, channelUsers[channelId])
 		}()
-		fmt.Printf("%s kanalina bagli kullanici sayisi: %d\n", channelId, channelUsers[channelId])
-
+		fmt.Printf("%s kanalina bagli kullanici sayisi: %d\n", channelId)
 		clients[conn] = true
 
+
+
 		for {
+			var wsResponse types.WsResponseDto
 			userMessage := types.MessageDto{}
 			var rawMessage types.Message
 			if mt, msg, err = conn.ReadMessage(); err != nil {
 				log.Info("read:", err)
+				conn.Close()
 				break
 			}
 			jserr := json.Unmarshal(msg, &userMessage)
@@ -87,7 +90,7 @@ func main() {
 			rawMessage.ChannelId = channel.Id
 			rawMessage.UserId = int(userId)
 			rawMessage.Text = userMessage.Text
-			
+
 			err := db.Create(&rawMessage).Error
 			if err != nil {
 				log.Info("create error:", err)
@@ -98,10 +101,13 @@ func main() {
 			if dberr != nil {
 				log.Fatal(dberr)
 			}
-
+			wsResponse.Message = userMessage
+			wsResponse.OnlineCount = channelUsers[channelId]
+			wsResponseByte, _ := json.Marshal(wsResponse)
 			for client := range clients {
-				if err = client.WriteMessage(mt, msg); err != nil {
+				if err = client.WriteMessage(mt, wsResponseByte); err != nil {
 					log.Info("write:", err)
+					conn.Close()
 					break
 				}
 			}

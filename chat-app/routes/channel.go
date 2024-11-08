@@ -4,7 +4,9 @@ import (
 	database "chat-app/db"
 	"chat-app/helper"
 	"chat-app/middleware"
+	"chat-app/repository"
 	"chat-app/types"
+
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 )
@@ -34,7 +36,7 @@ func ChannelRoutes(app fiber.Router) {
 			}
 		}
 
-		channel.AdminId = userId
+		channel.AuthorId = userId
 		result := db.Create(&channel)
 		if result.Error != nil {
 			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -45,26 +47,34 @@ func ChannelRoutes(app fiber.Router) {
 			"message": "Channel created for" + user["username"].(string),
 		})
 	})
-	r.Get("/all", func (ctx *fiber.Ctx) error  {
+	r.Get("/all", func(ctx *fiber.Ctx) error {
 		var channels []types.Channel
 		db.Model(&types.Channel{}).Preload("Users").Find(&channels)
 		return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
-			"status":  fiber.StatusOK,
+			"status":   fiber.StatusOK,
 			"channels": channels,
 		})
 	})
 	r.Get("/:id", func(ctx *fiber.Ctx) error {
 		var channel types.Channel
-		result := db.Model(&types.Channel{}).Where("id = ?", ctx.Params("id")).Preload("Messages").Preload("Users").First(&channel)
+		result := db.Model(&types.Channel{}).Where("id = ?", ctx.Params("id")).Preload("Users").First(&channel)
 		if result.Error != nil {
-			ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"status":  fiber.StatusBadRequest,
 				"message": result.Error,
 			})
 		}
+		messages, err := repository.GetChannelMessages(ctx.Params("id"))
+		if err != nil {
+			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"status":  fiber.StatusBadRequest,
+				"message": err,
+			})
+		}
 		return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
-			"status":  fiber.StatusOK,
-			"channel": channel,
+			"status":   fiber.StatusOK,
+			"channel":  channel,
+			"messages": messages,
 		})
 	})
 }
