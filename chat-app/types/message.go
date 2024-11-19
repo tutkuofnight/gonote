@@ -5,7 +5,7 @@ import "time"
 type Message struct {
 	Id        int       `gorm:"primaryKey;autoIncrement"`
 	Text      string    `json:"text" validate:"required"`
-	ChannelId int       `json:"channelId" gorm:"foreignKey:Id"`
+	ChannelId string    `json:"channelId"`
 	UserId    int       `json:"userId" gorm:"foreignKey:Id"`
 	createdAt time.Time `gorm:"autoCreateTime"`
 }

@@ -23,10 +23,3 @@ type LoginDto struct {
 }
 
 type RegisterDto = LoginDto
-
-// func (u *User) BeforeCreate(tx *gorm.DB) (err error) {
-// 	if u.ProfileImage == "" {
-// 		u.ProfileImage = ""
-// 	}
-// 	return
-// }

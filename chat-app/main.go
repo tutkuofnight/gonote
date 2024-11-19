@@ -58,20 +58,34 @@ func main() {
 			conn.Close()
 			return
 		}
+
+		updateOnlineCount := func() {
+			onlineCount, _ := json.Marshal(channelUsers[channelId])
+			for client := range clients {
+				if err = client.WriteMessage(mt, onlineCount); err != nil {
+					log.Info("write:", err)
+					conn.Close()
+					break
+				}
+			}
+		}
+
 		currentCount, has := channelUsers[channelId]
 		if has {
 			channelUsers[channelId] = currentCount + 1
+			updateOnlineCount()
+
 		} else {
 			channelUsers[channelId] = 1
+			updateOnlineCount()
 		}
 		defer func() {
 			channelUsers[channelId] -= 1
+			updateOnlineCount()
 			fmt.Printf("%s kanalina bagli kullanici sayisi: %d\n", channelId, channelUsers[channelId])
 		}()
 		fmt.Printf("%s kanalina bagli kullanici sayisi: %d\n", channelId)
 		clients[conn] = true
-
-
 
 		for {
 			var wsResponse types.WsResponseDto

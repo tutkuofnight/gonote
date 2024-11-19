@@ -4,6 +4,7 @@ import (
 	"chat-app/helper"
 	"chat-app/middleware"
 	"chat-app/types"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -42,10 +43,11 @@ func UserRotues(app fiber.Router) {
 				"error": "username already exist",
 			})
 		}
+
 		hashedPassword, _ := helper.HashPassword(body.Password)
-		
 		user.Username = body.Username
 		user.Password = hashedPassword
+		user.ProfileImage = "default-avatar.jpg"
 
 		err := db.Create(&user).Error
 		if err != nil {
@@ -55,7 +57,6 @@ func UserRotues(app fiber.Router) {
 			})
 		}
 		return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
-			"status":  fiber.StatusOK,
 			"message": "User successfully registered!",
 		})
 	})
@@ -73,7 +74,6 @@ func UserRotues(app fiber.Router) {
 			if validationErrors, ok := err.(validator.ValidationErrors); ok {
 				errorMessages := helper.RenderValidationErrors(validationErrors)
 				return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-					"status":  fiber.StatusBadRequest,
 					"message": errorMessages,
 				})
 			}
@@ -82,14 +82,12 @@ func UserRotues(app fiber.Router) {
 		err := db.Model(&types.User{}).Where("username = ?", body.Username).Preload("Channels").First(&findedUser).Error
 		if err != nil {
 			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"status":  err.Error(),
 				"message": "User not found",
 			})
 		}
 		passwordMatch := helper.MatchPassword(findedUser.Password, body.Password)
 		if !passwordMatch {
 			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"status":  fiber.StatusBadRequest,
 				"message": "password does not match",
 			})
 		}
@@ -105,7 +103,6 @@ func UserRotues(app fiber.Router) {
 		t, err := token.SignedString([]byte(os.Getenv("JWT_SECRET_KEY")))
 		if err != nil {
 			return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"status":  fiber.StatusInternalServerError,
 				"message": "Token signing failed",
 			})
 		}
@@ -121,25 +118,24 @@ func UserRotues(app fiber.Router) {
 		})
 	})
 
-	r.Post("/avatar", middleware.AuthMiddleware(), func(ctx *fiber.Ctx) error {
-		file, err := ctx.FormFile("avatar")
+	r.Post("/update-profile-image", middleware.RestrictUser, func(ctx *fiber.Ctx) error {
+		fmt.Print(ctx.FormFile("profileImage"))
+		file, err := ctx.FormFile("profileImage")
 		if err != nil {
 			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{})
 		}
-		dst := filepath.Join("static/avatars", file.Filename)
+		dst := filepath.Join("static/profile", file.Filename)
 		if err := ctx.SaveFile(file, dst); err != nil {
 			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"status":  fiber.StatusBadRequest,
-				"message": "Avatar not saved",
+				"message": "Profile Image Not Saved",
 			})
 		}
 		user := ctx.Locals("session").(map[string]interface{})
 		var findedUser types.UserDto
 		db.First(&findedUser, user["Id"].(string))
-		db.Model(&findedUser).Update("avatar", file.Filename)
+		db.Model(&findedUser).Update("profileImage", file.Filename)
 		return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
-			"status":  fiber.StatusOK,
-			"message": "Avatar successfully saved!",
+			"message": "Profile Image Successfully Saved!",
 		})
 
 	})
@@ -160,6 +156,14 @@ func UserRotues(app fiber.Router) {
 		}
 		return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
 			"user": findedUser,
+		})
+	})
+	r.Get("/get", middleware.RestrictUser, func(ctx *fiber.Ctx) error {
+		var user types.User
+		userSession := ctx.Locals("user").(map[string]interface{})
+		db.First(&user, int(userSession["id"].(float64)))
+		return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+			"user": user,
 		})
 	})
 }

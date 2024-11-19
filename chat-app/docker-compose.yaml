@@ -11,6 +11,16 @@ services:
     ports:
       - "5432:5432"
     restart: unless-stopped
+  redis: 
+    image: redis:latest
+    container_name: chat-invite-redis
+    ports: 
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    restart: unless-stopped
+
 
 volumes:
   postgres_data:
+  redis-data: 
+    driver: local
